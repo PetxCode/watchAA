@@ -1,46 +1,109 @@
 pipeline {
     agent any
-
-    stages {
-
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Build & Test') {
-            steps {
-                sh 'docker compose build'
-                sh 'docker compose run --rm app npm test'
-            }
-        }
-
-        stage('Deploy to VPS') {
-            steps {
-                sh '''
-                    rsync -avz --exclude='.git' --exclude='node_modules' \
-                        ./ ubuntu@172.236.21.79/:/home/ubuntu/my-app/
-                '''
-
-                sh '''
-                    ssh ubuntu@172.236.21.79/ '
-                        cd /home/ubuntu/my-app &&
-                        docker compose down &&
-                        docker compose up -d --build
-                    '
-                '''
-            }
-        }
-
+    
+    environment {
+        // Linode VPS Configuration
+        LINODE_HOST = '172.236.21.79'
+        LINODE_USER = 'root'
+        CONTAINER_NAME = 'jenjen
+        HOST_PORT = '7700'
+        CONTAINER_PORT = '7700'
     }
-
+    
+    stages {
+        stage('Checkout Source Code') {
+            steps {
+                // If using Git
+                git branch: 'main', url: 'https://github.com/your-username/your-repo.git'
+                
+                // OR if code is already on Jenkins: 
+                // echo 'Using workspace code'
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh """
+                        docker build -t ${CONTAINER_NAME}:latest .
+                    """
+                }
+            }
+        }
+        
+        stage('Save and Transfer Docker Image to Linode') {
+            steps {
+                script {
+                    // Save the Docker image to a tar file
+                    sh """
+                        docker save ${CONTAINER_NAME}:latest -o ${CONTAINER_NAME}.tar
+                    """
+                    
+                    // Transfer the image to Linode VPS using SCP with password
+                    // We'll use sshpass for password authentication
+                    sh """
+                        # Install sshpass if not available
+                        which sshpass || sudo apt-get install -y sshpass
+                        
+                        # Copy Docker image to Linode
+                        sshpass -p 'Peter#445' scp -o StrictHostKeyChecking=no ${CONTAINER_NAME}.tar ${LINODE_USER}@${LINODE_HOST}:/tmp/
+                        
+                        # Load image, stop old container, run new one
+                        sshpass -p 'Peter#445' ssh -o StrictHostKeyChecking=no ${LINODE_USER}@${LINODE_HOST} << 'ENDSSH'
+                            # Load the Docker image
+                            docker load -i /tmp/${CONTAINER_NAME}.tar
+                            
+                            # Stop and remove existing container if it exists
+                            docker stop ${CONTAINER_NAME} 2>/dev/null || true
+                            docker rm ${CONTAINER_NAME} 2>/dev/null || true
+                            
+                            # Run the new container
+                            docker run -d \
+                                --name ${CONTAINER_NAME} \
+                                -p ${HOST_PORT}:${CONTAINER_PORT} \
+                                --restart unless-stopped \
+                                ${CONTAINER_NAME}:latest
+                            
+                            # Clean up
+                            rm /tmp/${CONTAINER_NAME}.tar
+                            
+                            # Show running containers
+                            docker ps
+                            
+                            # Test the application
+                            echo "Testing application..."
+                            sleep 2
+                            curl -s http://localhost:${HOST_PORT} | head -5
+                        ENDSSH
+                        
+                        # Clean up local tar file
+                        rm ${CONTAINER_NAME}.tar
+                    """
+                }
+            }
+        }
+    }
+    
     post {
         success {
-            echo 'Deployed successfully!'
+            echo """
+            ╔════════════════════════════════════════════════════════╗
+            ║  ✅ DEPLOYMENT SUCCESSFUL!                             ║
+            ║                                                        ║
+            ║  Your Node.js app is now live at:                      ║
+            ║  http://${LINODE_HOST}:${HOST_PORT}                    ║
+            ║                                                        ║
+            ║  To view logs on Linode:                               ║
+            ║  ssh root@${LINODE_HOST} 'docker logs ${CONTAINER_NAME}'║
+            ╚════════════════════════════════════════════════════════╝
+            """
         }
         failure {
-            echo 'Pipeline failed — nothing was deployed.'
+            echo "❌ Deployment failed! Check the console output above for errors."
+        }
+        always {
+            // Clean up any leftover files
+            sh "rm -f ${CONTAINER_NAME}.tar"
         }
     }
 }

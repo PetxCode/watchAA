@@ -10,6 +10,28 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to my simple API!" });
 });
 
+app.get("/home", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Node.js App on Linode</title>
+        <style>
+            body { font-family: Arial; text-align: center; padding: 50px; }
+            h1 { color: #4CAF50; }
+            .time { color: #666; margin-top: 20px; }
+        </style>
+    </head>
+    <body>
+        <h1>✅ Node.js App Deployed Successfully!</h1>
+        <p>Deployed via Jenkins Pipeline to Linode VPS</p>
+        <p>Server Time: <span class="time">${new Date().toLocaleString()}</span></p>
+        <p>Container: ${process.env.HOSTNAME || "Unknown"}</p>
+    </body>
+    </html>
+  `);
+});
+
 // GET endpoint - returns a list of users
 app.get("/users", (req, res) => {
   const users = [
