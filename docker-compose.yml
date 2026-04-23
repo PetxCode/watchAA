@@ -1,0 +1,9 @@
+services:
+  app: # ← this was missing entirely
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jenjen
+    ports:
+      - 7700:7700
+    restart: unless-stopped

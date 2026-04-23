@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build & Test') {
+            steps {
+                sh 'docker compose build'
+                sh 'docker compose run --rm app npm test'
+            }
+        }
+
+        stage('Deploy to VPS') {
+            steps {
+                sh '''
+                    rsync -avz --exclude='.git' --exclude='node_modules' \
+                        ./ ubuntu@45.76.12.88:/home/ubuntu/my-app/
+                '''
+
+                sh '''
+                    ssh ubuntu@45.76.12.88 '
+                        cd /home/ubuntu/my-app &&
+                        docker compose down &&
+                        docker compose up -d --build
+                    '
+                '''
+            }
+        }
+
+    }
+
+    post {
+        success {
+            echo 'Deployed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed — nothing was deployed.'
+        }
+    }
+}
