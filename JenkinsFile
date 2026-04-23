@@ -20,11 +20,11 @@ pipeline {
             steps {
                 sh '''
                     rsync -avz --exclude='.git' --exclude='node_modules' \
-                        ./ ubuntu@45.76.12.88:/home/ubuntu/my-app/
+                        ./ ubuntu@172.236.21.79/:/home/ubuntu/my-app/
                 '''
 
                 sh '''
-                    ssh ubuntu@45.76.12.88 '
+                    ssh ubuntu@172.236.21.79/ '
                         cd /home/ubuntu/my-app &&
                         docker compose down &&
                         docker compose up -d --build
