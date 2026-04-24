@@ -25,7 +25,7 @@ app.get("/home", (req, res) => {
     <body>
         <h1>✅ Node.js App Deployed Successfully!</h1>
         <p>Deployed via Jenkins Pipeline to Linode VPS</p>
-        <p>Server Time: <span class="time">${new Date().toLocaleString()}</span></p>
+        <p>Server Time: <span class="time">${new Date().toLocaleString()}</span><Awesome/p>
         <p>Container: ${process.env.HOSTNAME || "Unknown"}</p>
     </body>
     </html>
